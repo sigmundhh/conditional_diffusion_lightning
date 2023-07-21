@@ -1,0 +1,12 @@
+name: pl_env
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - ipykernel
+  - torchvision
+  - torchaudio
+  - pytorch::pytorch
+  - lightning=2.0.1
+  - matplotlib
+prefix: /opt/homebrew/Caskroom/miniforge/base/envs/pl_env
