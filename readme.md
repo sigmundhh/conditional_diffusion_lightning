@@ -1,3 +1,3 @@
-## Conditinal classifier-free DDPM
+## Conditional classifier-free DDPM
 
 Implemented in PyTorch lightning
