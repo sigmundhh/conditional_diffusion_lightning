@@ -1,3 +1,29 @@
 /.DS_Store
 /datasets
 /lightning_logs
+/wandb
+/checkpoints
+
+# Checkpoint files
+/ddpm-lightning
+/language-cond-ddpm-lightning
+/push_t_lightning/push-t_lightning
+*.pt
+
+# Files related to homework
+*.zip
+*.pdf
+
+
+# pycache
+__pycache__/
+
+# vscode
+.vscode/
+.devcontainer/
+
+/push_t_lightning/models
+/push_t_lightning/push_t_dataset/datasets
+/push_t_lightning/wandb
+/push_t_lightning/vis.mp4
+/push_t_lightning/temp_plot.png
