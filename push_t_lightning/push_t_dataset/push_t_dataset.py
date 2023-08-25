@@ -160,7 +160,7 @@ class PushTImageDataLoader(torch.utils.data.DataLoader):
                   shuffle: bool = True,
                   pin_memory: bool = True,
                   persistent_workers: bool = True,
-                  dataset_path: str = "datasets/pusht_cchi_v7_replay.zarr.zip"):
+                  dataset_path: str = "push_t_dataset/datasets/pusht_cchi_v7_replay.zarr.zip"):
     
         super().__init__(
             PushTImageDataset(

@@ -1,11 +1,15 @@
 import numpy as np
 import pytorch_lightning as pl
+from torch.optim.optimizer import Optimizer
 import wandb
 import torch
 from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
+from diffusers.training_utils import EMAModel
 from diffusers.optimization import get_scheduler
 from tqdm.auto import tqdm
 import matplotlib.pyplot as plt
+
+import copy
 
 from ddpm_policy.visual_encoder import VisualEncoder
 from ddpm_policy.cond_unet_1d import ConditionalUnet1D
@@ -18,7 +22,7 @@ class DDPMPolicy(pl.LightningModule):
     def __init__(
             self,
             mask_probability=0.5, 
-            num_diff_steps=1000,
+            num_diff_steps=100,
             beta_min = 1e-4,
             beta_max = 1e-2,
             pred_horizon = 16,
@@ -26,7 +30,8 @@ class DDPMPolicy(pl.LightningModule):
             action_dim = 2,
             numerical_obs_dim = 2,
             dataloader = None,
-            num_epochs = 100
+            num_epochs = 100,
+            ema = True
     ) -> None: 
         super().__init__()
         self.visual_encoder = VisualEncoder()
@@ -60,10 +65,16 @@ class DDPMPolicy(pl.LightningModule):
         self.dataset_stats = dataloader.dataset.stats
         self.dataset_length = len(dataloader)
         self.num_epochs = num_epochs
+        if ema:
+            self.ema = EMAModel(
+                parameters=self.parameters(),
+                power=0.75
+            )
+            self.ema.to(self.device)
 
-    def generate_actions(self, image, agent_pos):
+    def generate_actions(self, image, agent_pos, eval=False):
         """
-        Does non-guided generation
+        Does non-guided generation. In th
         Args:
             image (B, obs_horizon, 3, 96, 96)
             agent_pos (B, obs_horizon, numerical_obs_dim)
@@ -71,6 +82,9 @@ class DDPMPolicy(pl.LightningModule):
             generated_actions (B, pred_horizon, action_dim)
         """
         with torch.no_grad():
+            if hasattr(self, "ema") and eval:
+                self.ema.copy_to(self.parameters())
+
             image = image.to(self.device)
             agent_pos = agent_pos.to(self.device)
             n_samples = image.shape[0]
@@ -82,6 +96,9 @@ class DDPMPolicy(pl.LightningModule):
             visual_emb = self.visual_encoder(image.flatten(end_dim=1)) # (batch_size*obs_horizon, 512)
             visual_features = visual_emb.reshape(*image.shape[:2], -1) # (batch_size, obs_horizon, 512)
             full_cond = torch.cat([visual_features, agent_pos], dim=-1).view(n_samples, -1) # (batch_size, (visual_emb_dim + obs_dim) * obs_horizon)
+
+            # init scheduler
+            self.noise_scheduler.set_timesteps(self.num_diff_steps)
 
             for k in tqdm(self.noise_scheduler.timesteps):
                     # predict noise
@@ -101,6 +118,9 @@ class DDPMPolicy(pl.LightningModule):
 
     def forward(self, image, agent_pos):
         return self.generate_actions(image, agent_pos)
+
+    def on_fit_start(self):
+        self.ema.to(self.device)
     
     def training_step(self, batch):
         """
@@ -144,19 +164,25 @@ class DDPMPolicy(pl.LightningModule):
         self.log("train_loss", loss, prog_bar=True)
         
         return loss
+    
+    def on_before_zero_grad(self, *args, **kwargs):
+        # update the EMA model
+        if hasattr(self, "ema"):
+            self.ema.step(self.parameters())
         
     def configure_optimizers(self, lr=1e-3):
         #return torch.optim.Adam(self.parameters(), lr=lr)
         optimizer = torch.optim.AdamW(self.parameters(), lr=1e-4, weight_decay=1e-6)
-        return {
-            "optimizer": optimizer,
-            "lr_scheduler": {
-                "scheduler": get_scheduler(
+        scheduler = get_scheduler(
                                 name='cosine',
                                 optimizer=optimizer,
                                 num_warmup_steps=500,
                                 num_training_steps=self.dataset_length * self.num_epochs
                             )
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler
             },
         }
     

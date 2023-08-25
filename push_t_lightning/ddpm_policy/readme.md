@@ -5,6 +5,7 @@ This note is about the policy, which consist of a DDPM diffusion model to infer 
 - Images
 - agent_pos
 Both for `obs_horizon` steps into the past.
+
 **Outputs:** 
 - Predicted actions for the future `pred_horizon` steps (B, pred_horizon, action_dim)
 We then do reverse diffusion to come up with actions over a future horizon with length `pred_horizon`. 
