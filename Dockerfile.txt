@@ -26,4 +26,4 @@ RUN /bin/bash -c ". /opt/conda/etc/profile.d/conda.sh && \
 
 RUN apt-get update && apt-get install ffmpeg libsm6 libxext6  -y
 
-ENV WANDB_API_KEY=f6f588f4cef675acd3eae76728c5cfcca8e7026b
+ENV WANDB_API_KEY=XXX
